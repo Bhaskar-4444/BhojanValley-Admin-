@@ -93,5 +93,50 @@
 
     loadOrders(); // Start loading on page open
   </script>
+<body>
+  <h2>Admin Panel</h2>
+
+  <div id="ordersContainer"></div>
+
+  <h3>Update Order Status</h3>
+  <input type="text" id="orderId" placeholder="Enter Order ID" />
+  <input type="text" id="orderStatus" placeholder="Enter New Status" />
+  <button onclick="updateOrder()">Update Order</button>
+
+  <script>
+    function updateOrder() {
+      const orderId = document.getElementById('orderId').value;
+      const status = document.getElementById('orderStatus').value;
+
+      firebase.database().ref('orders/' + orderId).update({
+        status: status
+      }).then(() => {
+        alert("Order updated successfully!");
+      }).catch((error) => {
+        alert("Error: " + error);
+      });
+    }
+
+    firebase.database().ref('orders').on('value', (snapshot) => {
+      const data = snapshot.val();
+      const container = document.getElementById('ordersContainer');
+      container.innerHTML = '';
+
+      for (let id in data) {
+        const order = data[id];
+        container.innerHTML += `
+          <div style="margin-bottom:10px; border:1px solid gray; padding:10px;">
+            <b>Order ID:</b> ${id} <br>
+            <b>Item:</b> ${order.item || "-"} <br>
+            <b>Qty:</b> ${order.qty || "-"} <br>
+            <b>Table:</b> ${order.table || "-"} <br>
+            <b>Time:</b> ${order.time || "-"} <br>
+            <b>Status:</b> ${order.status || "-"} <br>
+          </div>
+        `;
+      }
+    });
+  </script>
 </body>
+
 </html>
