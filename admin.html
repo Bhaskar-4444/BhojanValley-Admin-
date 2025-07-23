@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Admin Panel</title>
 
-  <!-- ✅ Firebase SDK (non-module, safe for file:// and browser use) -->
+  <!-- ✅ Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
 
@@ -23,27 +23,75 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
   </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    .order {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px 0;
+    }
+  </style>
 </head>
 <body>
-  <h2>Admin Panel</h2>
+  <h2>🛠️ Admin Panel - Manage Orders</h2>
 
-  <input type="text" id="orderId" placeholder="Enter Order ID" />
-  <input type="text" id="orderStatus" placeholder="Enter Order Status" />
-  <button onclick="updateOrder()">Update Order</button>
+  <div id="ordersContainer">Loading orders...</div>
 
   <script>
-    function updateOrder() {
-      const orderId = document.getElementById('orderId').value;
-      const status = document.getElementById('orderStatus').value;
+    const ordersContainer = document.getElementById("ordersContainer");
 
-      firebase.database().ref('orders/' + orderId).set({
-        status: status
-      }).then(() => {
-        alert("Order updated successfully!");
-      }).catch((error) => {
-        alert("Error: " + error);
+    function loadOrders() {
+      db.ref('orders').on('value', (snapshot) => {
+        ordersContainer.innerHTML = ""; // clear
+        const data = snapshot.val();
+        if (!data) {
+          ordersContainer.innerText = "❌ No orders found.";
+          return;
+        }
+
+        for (let id in data) {
+          const order = data[id];
+          const div = document.createElement("div");
+          div.className = "order";
+          div.innerHTML = `
+            <strong>🆔 Order ID:</strong> ${id}<br>
+            🍽️ <strong>Item:</strong> ${order.item}<br>
+            📦 <strong>Quantity:</strong> ${order.qty}<br>
+            📍 <strong>Table:</strong> ${order.table}<br>
+            ⏰ <strong>Time:</strong> ${order.time}<br>
+            🚚 <strong>Status:</strong> <span id="status-${id}">${order.status}</span><br><br>
+
+            <input type="text" id="input-${id}" placeholder="New status" />
+            <button onclick="updateStatus('${id}')">Update Status</button>
+          `;
+          ordersContainer.appendChild(div);
+        }
       });
     }
+
+    function updateStatus(orderId) {
+      const newStatus = document.getElementById("input-" + orderId).value;
+      if (!newStatus) {
+        alert("Please enter a status!");
+        return;
+      }
+
+      db.ref('orders/' + orderId + '/status').set(newStatus)
+        .then(() => {
+          document.getElementById("status-" + orderId).innerText = newStatus;
+          document.getElementById("input-" + orderId).value = "";
+          alert("✅ Status updated!");
+        })
+        .catch((error) => {
+          alert("❌ Error updating status: " + error);
+        });
+    }
+
+    loadOrders(); // Start loading on page open
   </script>
 </body>
 </html>
