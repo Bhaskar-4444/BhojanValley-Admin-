@@ -11,16 +11,20 @@
         input, select { padding: 10px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
         button { background-color: #28a745; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; }
         button:hover { background-color: #218838; }
+        .logout-btn { background-color: #dc3545; margin: 10px 0; }
+        .logout-btn:hover { background-color: #c82333; }
         .success, .error { display: none; margin: 10px 0; padding: 10px; border-radius: 4px; }
         .success { background-color: #d4edda; color: #155724; }
         .error { background-color: #f8d7da; color: #721c24; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
         th { background-color: #f8f8f8; }
+        select.status-select { width: 100%; }
     </style>
 </head>
 <body>
     <h1>Bhojan Valley Admin Panel</h1>
+    <button class="logout-btn" onclick="logout()">Logout</button>
 
     <div class="section">
         <h2>Analytics</h2>
@@ -60,10 +64,11 @@
                     <th>Items</th>
                     <th>Total (₹)</th>
                     <th>Timestamp</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody id="orderList">
-                <tr><td colspan="4">No orders available.</td></tr>
+                <tr><td colspan="5">No orders available.</td></tr>
             </tbody>
         </table>
     </div>
@@ -71,7 +76,7 @@
     <script type="module">
         // Import Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
         import { getDatabase, ref, onValue, update, set, get } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
         // Your Firebase configuration
@@ -90,6 +95,17 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const database = getDatabase(app);
+
+        // Logout function
+        window.logout = async function() {
+            try {
+                await signOut(auth);
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Logout error:', error.code, error.message);
+                alert('Error logging out. Check console for details.');
+            }
+        };
 
         // Check if user is authenticated
         onAuthStateChanged(auth, (user) => {
@@ -119,28 +135,50 @@
 
                         const row = document.createElement('tr');
                         const itemList = order.items?.map(item => `${item.name} (₹${item.price} x ${item.quantity})`).join(', ') || 'No items';
+                        const timestamp = order.timestamp ? new Date(order.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A';
+                        const status = order.status || 'Pending';
+
                         row.innerHTML = `
                             <td>${orderId}</td>
                             <td>${itemList}</td>
                             <td>${order.total || 0}</td>
-                            <td>${order.timestamp ? new Date(order.timestamp).toLocaleString() : 'N/A'}</td>
+                            <td>${timestamp}</td>
+                            <td>
+                                <select class="status-select" onchange="updateOrderStatus('${orderId}', this.value)">
+                                    <option value="Pending" ${status === 'Pending' ? 'selected' : ''}>Pending</option>
+                                    <option value="In Progress" ${status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                                    <option value="Completed" ${status === 'Completed' ? 'selected' : ''}>Completed</option>
+                                </select>
+                            </td>
                         `;
                         orderList.appendChild(row);
                     });
                 } else {
-                    orderList.innerHTML = '<tr><td colspan="4">No orders available.</td></tr>';
+                    orderList.innerHTML = '<tr><td colspan="5">No orders available.</td></tr>';
                 }
 
                 totalOrdersElement.textContent = totalOrders;
                 totalRevenueElement.textContent = totalRevenue;
             } catch (error) {
                 console.error('Error fetching orders:', error.code, error.message);
-                orderList.innerHTML = '<tr><td colspan="4">Error loading orders. Check console for details.</td></tr>';
+                orderList.innerHTML = '<tr><td colspan="5">Error loading orders. Check console for details.</td></tr>';
             }
         }, (error) => {
             console.error('Realtime listener error:', error.code, error.message);
-            orderList.innerHTML = '<tr><td colspan="4">Error loading orders. Check console for details.</td></tr>';
+            orderList.innerHTML = '<tr><td colspan="5">Error loading orders. Check console for details.</td></tr>';
         });
+
+        // Update order status
+        window.updateOrderStatus = async function(orderId, newStatus) {
+            try {
+                const orderRef = ref(database, `orders/${orderId}`);
+                await update(orderRef, { status: newStatus });
+                console.log(`Order ${orderId} status updated to ${newStatus}`);
+            } catch (error) {
+                console.error('Error updating order status:', error.code, error.message);
+                alert('Error updating order status. Check console.');
+            }
+        };
 
         // Update item price
         window.updateItemPrice = async function() {
